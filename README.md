@@ -24,7 +24,7 @@ The risk fund concerns three main contracts:
 - `RiskFund`
 - `ReserveHelpers`
 
-These three contracts are designed to hold funds that have been accumulated from interest reserves and liquidation incentives, send a portion to the protocol treasury, and send the remainder to the `RiskFund` contract. When `reduceReserves()` is called in a vToken contract, all accumulated liquidation fees and interests reserves are sent to the `ProtocolShareReserve` contract. Once funds are transferred to the `ProtocolShareReserve`, anyone can call `releaseFunds()` to transfer 50% to the `protocolIncome` address and the other 50% to the `riskFund` contract. Once in the `riskFund` contract, the tokens can be swapped via PancakeSwap pairs to the convertible base asset, which can be updated by the authorized accounts. When tokens are converted to the `convertibleBaseAsset`, they can be used in the `Shortfall` contract to auction off the pool's bad debt. Note that just as each pool is isolated, the risk funds for each pool are also isolated: only the associated risk fund for a pool can be used when auctioning off the bad debt of the pool.
+These three contracts are designed to hold funds that have been accumulated from interest reserves and liquidation incentives, send a portion to the protocol treasury, and send the remainder to the `RiskFund` contract. When `reduceReserves()` is called in a leToken contract, all accumulated liquidation fees and interests reserves are sent to the `ProtocolShareReserve` contract. Once funds are transferred to the `ProtocolShareReserve`, anyone can call `releaseFunds()` to transfer 50% to the `protocolIncome` address and the other 50% to the `riskFund` contract. Once in the `riskFund` contract, the tokens can be swapped via PancakeSwap pairs to the convertible base asset, which can be updated by the authorized accounts. When tokens are converted to the `convertibleBaseAsset`, they can be used in the `Shortfall` contract to auction off the pool's bad debt. Note that just as each pool is isolated, the risk funds for each pool are also isolated: only the associated risk fund for a pool can be used when auctioning off the bad debt of the pool.
 
 ### Shortfall
 
@@ -49,33 +49,33 @@ The owner has the ability to transfer any amount of reward tokens held by the co
 
 The `PoolLens` contract is designed to retrieve important information for each registered pool. A list of essential information for all pools within the lending protocol can be acquired through the function `getAllPools()`. Additionally, the following records can be looked up for specific pools and markets:
 
-- the vToken balance of a given user;
-- the pool data (oracle address, associated vToken, liquidation incentive, etc) of a pool via its associated comptroller address;
-- the vToken address in a pool for a given asset;
+- the leToken balance of a given user;
+- the pool data (oracle address, associated leToken, liquidation incentive, etc) of a pool via its associated comptroller address;
+- the leToken address in a pool for a given asset;
 - a list of all pools that support an asset;
-- the underlying asset price of a vToken;
-- the metadata (exchange/borrow/supply rate, total supply, collateral factor, etc) of any vToken.
+- the underlying asset price of a leToken;
+- the metadata (exchange/borrow/supply rate, total supply, collateral factor, etc) of any leToken.
 
 ### Rate Models
 
 These contracts help algorithmically determine the interest rate based on supply and demand. If the demand is low, then the interest rates should be lower. In times of high utilization, the interest rates should go up. As such, the lending market borrowers will earn interest equal to the borrowing rate multiplied by utilization ratio.
 
-### VToken
+### LeToken
 
-Each asset that is supported by a pool is integrated through an instance of the `VToken` contract. As outlined in the protocol overview, each isolated pool creates its own `vToken` corresponding to an asset. Within a given pool, each included `vToken` is referred to as a market of the pool. The main actions a user regularly interacts with in a market are:
+Each asset that is supported by a pool is integrated through an instance of the `LeToken` contract. As outlined in the protocol overview, each isolated pool creates its own `leToken` corresponding to an asset. Within a given pool, each included `leToken` is referred to as a market of the pool. The main actions a user regularly interacts with in a market are:
 
-- mint/redeem of vTokens;
-- transfer of vTokens;
+- mint/redeem of leTokens;
+- transfer of leTokens;
 - borrow/repay a loan on an underlying asset;
 - liquidate a borrow or liquidate/heal an account.
 
-A user supplies the underlying asset to a pool by minting `vTokens`, where the corresponding `vToken` amount is determined by the `exchangeRate`. The `exchangeRate` will change over time, dependent on a number of factors, some of which accrue interest. Additionally, once users have minted `vToken` in a pool, they can borrow any asset in the isolated pool by using their `vToken` as collateral. In order to borrow an asset or use a `vToken` as collateral, the user must be entered into each corresponding market (else, the `vToken` will not be considered collateral for a borrow). Note that a user may borrow up to a portion of their collateral determined by the market’s collateral factor. However, if their borrowed amount exceeds an amount calculated using the market’s corresponding liquidation threshold, the borrow is eligible for liquidation. When a user repays a borrow, they must also pay off interest accrued on the borrow.
+A user supplies the underlying asset to a pool by minting `leTokens`, where the corresponding `leToken` amount is determined by the `exchangeRate`. The `exchangeRate` will change over time, dependent on a number of factors, some of which accrue interest. Additionally, once users have minted `leToken` in a pool, they can borrow any asset in the isolated pool by using their `leToken` as collateral. In order to borrow an asset or use a `leToken` as collateral, the user must be entered into each corresponding market (else, the `leToken` will not be considered collateral for a borrow). Note that a user may borrow up to a portion of their collateral determined by the market’s collateral factor. However, if their borrowed amount exceeds an amount calculated using the market’s corresponding liquidation threshold, the borrow is eligible for liquidation. When a user repays a borrow, they must also pay off interest accrued on the borrow.
 
-The Kredly protocol includes unique mechanisms for healing an account and liquidating an account. These actions are performed in the `Comptroller` and consider all borrows and collateral for which a given account is entered within a market. These functions may only be called on an account with a total collateral amount that is no larger than a universal `minLiquidatableCollateral` value, which is used for all markets within a `Comptroller`. Both functions settle all of an account’s borrows, but `healAccount()` may add `badDebt` to a vToken. For more detail, see the description of `healAccount()` and `liquidateAccount()` in the `Comptroller` summary section below.
+The Kredly protocol includes unique mechanisms for healing an account and liquidating an account. These actions are performed in the `Comptroller` and consider all borrows and collateral for which a given account is entered within a market. These functions may only be called on an account with a total collateral amount that is no larger than a universal `minLiquidatableCollateral` value, which is used for all markets within a `Comptroller`. Both functions settle all of an account’s borrows, but `healAccount()` may add `badDebt` to a leToken. For more detail, see the description of `healAccount()` and `liquidateAccount()` in the `Comptroller` summary section below.
 
 ### Comptroller
 
-The `Comptroller` is designed to provide checks for all minting, redeeming, transferring, borrowing, lending, repaying, liquidating, and seizing done by the `vToken` contract. Each pool has one `Comptroller` checking these interactions across markets. When a user interacts with a given market by one of these main actions, a call is made to a corresponding hook in the associated `Comptroller`, which either allows or reverts the transaction. These hooks also update supply and borrow rewards as they are called. The comptroller holds the logic for assessing liquidity snapshots of an account via the collateral factor and liquidation threshold. This check determines the collateral needed for a borrow, as well as how much of a borrow may be liquidated. A user may borrow a portion of their collateral with the maximum amount determined by the markets collateral factor. However, if their borrowed amount exceeds an amount calculated using the market’s corresponding liquidation threshold, the borrow is eligible for liquidation.
+The `Comptroller` is designed to provide checks for all minting, redeeming, transferring, borrowing, lending, repaying, liquidating, and seizing done by the `leToken` contract. Each pool has one `Comptroller` checking these interactions across markets. When a user interacts with a given market by one of these main actions, a call is made to a corresponding hook in the associated `Comptroller`, which either allows or reverts the transaction. These hooks also update supply and borrow rewards as they are called. The comptroller holds the logic for assessing liquidity snapshots of an account via the collateral factor and liquidation threshold. This check determines the collateral needed for a borrow, as well as how much of a borrow may be liquidated. A user may borrow a portion of their collateral with the maximum amount determined by the markets collateral factor. However, if their borrowed amount exceeds an amount calculated using the market’s corresponding liquidation threshold, the borrow is eligible for liquidation.
 
 The `Comptroller` also includes two functions `liquidateAccount()` and `healAccount()`, which are meant to handle accounts that do not exceed the `minLiquidatableCollateral` for the `Comptroller`:
 
